@@ -186,7 +186,8 @@ $ids = $db->insertMulti('users', $data);
 if(!$ids) {
     echo 'insert failed: ' . $db->getLastError();
 } else {
-    echo 'new users inserted with following id\'s: ' . implode(', ', $ids);
+    // the result-array can contain int and bool values (for succeeded insertions if onDuplicate was set)
+    echo 'new users inserted with following id\'s: ' . implode(', ', array_filter($ids, 'is_int'));
 }
 ```
 

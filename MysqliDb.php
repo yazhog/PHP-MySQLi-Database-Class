@@ -751,7 +751,7 @@ class MysqliDb
      * @param string $tableName The name of the table.
      * @param array $insertData Data containing information for inserting into the DB.
      *
-     * @return bool Boolean indicating whether the insert query was completed succesfully.
+     * @return bool|int Boolean indicating whether the insert query was completed succesfully, last-insert-id on success.
      */
     public function insert($tableName, $insertData)
     {
@@ -765,39 +765,63 @@ class MysqliDb
      * @param array $multiInsertData Two-dimensinal Data-array containing information for inserting into the DB.
      * @param array $dataKeys Optinal Table Key names, if not set in insertDataSet.
      *
-     * @return bool|array Boolean indicating the insertion failed (false), else return id-array ([int])
+     * @return false|array Boolean indicating whether the insertion was completed succesfully,
+     *                             or returns an array with int (ids)/bool (if onDuplicated is set) on success.
      */
     public function insertMulti($tableName, array $multiInsertData, array $dataKeys = null)
     {
         // only auto-commit our inserts, if no transaction is currently running
         $autoCommit = (isset($this->_transaction_in_progress) ? !$this->_transaction_in_progress : true);
-        $ids = array();
+        $IDList = array();
 
-        if($autoCommit) {
+        // fetch current query-configuration
+        $temp = array(
+            'lastInsertId' => $this->_lastInsertId,
+            'updateColumns' => $this->_updateColumns,
+            'nestJoin' => $this->_nestJoin,
+            'forUpdate' => $this->_forUpdate,
+            'lockInShareMode' => $this->_lockInShareMode,
+            'queryOptions' => $this->_queryOptions,
+            'connectionName' => $this->defConnectionName,
+        );
+
+        if ($autoCommit) {
             $this->startTransaction();
         }
 
-        foreach ($multiInsertData as $insertData) {
-            if($dataKeys !== null) {
+        foreach ($multiInsertData as $insertData)
+        {
+            if ($dataKeys !== null) {
                 // apply column-names if given, else assume they're already given in the data
                 $insertData = array_combine($dataKeys, $insertData);
             }
 
-            $id = $this->insert($tableName, $insertData);
-            if(!$id) {
-                if($autoCommit) {
+            // apply configuration for each insert query
+            $this->_lastInsertId = $temp['lastInsertId'];
+            $this->_updateColumns = $temp['updateColumns'];
+            $this->_nestJoin = $temp['nestJoin'];
+            $this->_forUpdate = $temp['forUpdate'];
+            $this->_lockInShareMode = $temp['lockInShareMode'];
+            $this->_queryOptions = $temp['queryOptions'];
+            $this->defConnectionName = $temp['connectionName'];
+
+            $newID = $this->insert($tableName, $insertData);
+            if (!$newID) {
+                if ($autoCommit) {
                     $this->rollback();
                 }
                 return false;
             }
-            $ids[] = $id;
+
+            // insert-queries can succeed but return true instead of an int, if onDuplicate was set!
+            $IDList[] = $newID;
         }
 
-        if($autoCommit) {
+        if ($autoCommit) {
             $this->commit();
         }
 
-        return $ids;
+        return $IDList;
     }
 
     /**
