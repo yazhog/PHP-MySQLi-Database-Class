@@ -10,7 +10,7 @@
  * @copyright Copyright (c) 2010-2017
  * @license   http://opensource.org/licenses/gpl-3.0.html GNU Public License
  * @link      http://github.com/joshcam/PHP-MySQLi-Database-Class 
- * @version   2.9-master
+ * @version   2.9.2
  */
 
 class MysqliDb
@@ -221,6 +221,11 @@ class MysqliDb
     protected $autoReconnectCount = 0;
 
     /**
+     * @var bool Operations in transaction indicator
+     */
+    protected $_transaction_in_progress = false;
+
+    /**
      * @param string $host
      * @param string $username
      * @param string $password
@@ -416,7 +421,9 @@ class MysqliDb
         $this->_lastInsertId = null;
         $this->_updateColumns = null;
         $this->_mapKey = null;
-        $this->defConnectionName = 'default';
+        if(!$this->_transaction_in_progress ) {
+            $this->defConnectionName = 'default';
+        }
         $this->autoReconnectCount = 0;
         return $this;
     }
@@ -1218,7 +1225,7 @@ class MysqliDb
      */
     public function groupBy($groupByField)
     {
-        $groupByField = preg_replace("/[^-a-z0-9\.\(\),_\*]+/i", '', $groupByField);
+        $groupByField = preg_replace("/[^-a-z0-9\.\(\),_\* <>=!]+/i", '', $groupByField);
 
         $this->_groupBy[] = $groupByField;
         return $this;
