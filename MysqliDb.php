@@ -817,7 +817,7 @@ class MysqliDb
                 if ($autoCommit) {
                     $this->rollback();
                 }
-                return false;
+                if (!in_array('IGNORE', $temp['queryOptions'])) return false;
             }
 
             // insert-queries can succeed but return true instead of an int, if onDuplicate was set!
